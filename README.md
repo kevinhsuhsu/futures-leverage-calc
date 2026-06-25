@@ -17,6 +17,16 @@ python3 -m http.server 8000
 # 開 http://localhost:8000
 ```
 
+## 打包成單檔分享
+
+開發時是多檔（需 http server）。要分享給別人「雙擊就開」的單一檔案：
+
+```bash
+node build.mjs        # 產出 dist/leverage-calc.html
+```
+
+把 `dist/leverage-calc.html` 傳給對方即可，**不需 http server、雙擊用瀏覽器開**（CSS/JS/乘數表全內嵌）。更新保證金與 Fugle 報價在 `file://` 下仍可用（proxy／Fugle 回 `Access-Control-Allow-Origin: *`，允許 null origin）。
+
 ## 多檔持倉
 
 - **更新保證金**：一鍵從期交所抓全部商品保證金存 local（手動觸發、低頻，避免黑名單）。1 小時內再按沿用快取；proxy 掛掉時用「手動貼上」備援。
