@@ -132,8 +132,10 @@ function renderInventory() {
 
   const calcRows = inv.map((pos) => {
     const p = productByCode(pos.productCode);
-    const calc = p ? computePosition(p, pos.lots, pos.cost, overrides[pos.productCode]) : null;
     const q = pos.symbol ? livePrices[pos.symbol] : null;
+    // 個股期貨保證金/契約價值基準：結算價→現價→成本（不是用成本！成本只用於損益）
+    const valPx = q?.ref ?? q?.price ?? pos.cost;
+    const calc = p ? computePosition(p, pos.lots, valPx, overrides[pos.productCode]) : null;
     const lv = live && calc && q && q.price != null ? computeLive(pos, calc, q.price) : null;
     return { pos, p, calc, q, lv };
   });
@@ -303,7 +305,7 @@ async function fetchAllLive(silent = false) {
 let liveStream = null;
 let tickPending = false;
 function onTick(sym, price) {
-  livePrices[sym] = { price, error: null };
+  livePrices[sym] = { ...(livePrices[sym] || {}), price, error: null };
   if (tickPending) return; // 合併同一幀內多筆 tick，避免狂重繪
   tickPending = true;
   requestAnimationFrame(() => { tickPending = false; renderInventory(); });

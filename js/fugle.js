@@ -26,15 +26,14 @@ export async function fetchLastPrice(symbol, apiKey) {
       return { price: null, error: `HTTP ${res.status}${res.status === 401 ? '（金鑰無效）' : res.status === 404 ? '（合約代碼錯誤）' : ''}` };
     }
     const d = await res.json();
-    // Fugle futopt quote 常見價格欄位，依序容錯。
-    const p =
-      d.lastPrice ??
-      d.lastTrade?.price ??
-      d.closePrice ??
-      d.previousClose ??
-      d.lastTrial?.price ??
-      null;
-    return { price: p == null ? null : Number(p), error: p == null ? '回應無價格欄位' : null };
+    // 現價（lastPrice）與結算價基準（referencePrice，保證金用）。
+    const p = d.lastPrice ?? d.lastTrade?.price ?? d.closePrice ?? d.previousClose ?? null;
+    const ref = d.referencePrice ?? d.previousClose ?? null;
+    return {
+      price: p == null ? null : Number(p),
+      ref: ref == null ? null : Number(ref),
+      error: p == null ? '回應無價格欄位' : null,
+    };
   } catch (e) {
     console.error('[live] fetch error', symbol, e);
     return { price: null, error: `CORS/網路（${e.message}）` };
