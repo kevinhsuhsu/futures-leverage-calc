@@ -65,9 +65,10 @@ node build.mjs        # 產出 dist/leverage-calc.html
 
 權益數區塊勾「Fugle 即時報價」+ 貼 [Fugle 金鑰](https://developer.fugle.tw/docs/data-futopt/intro/)，每檔填**近月完整合約代碼**（加入時下拉預設近月）。
 
-- 端點：`https://api.fugle.tw/marketdata/v1.0/futopt/intraday/quote/{symbol}`，header `X-API-KEY`。實測 Fugle **允許瀏覽器直連**（無 CORS 問題）。
+- **WebSocket 串流（tick-by-tick）**：`wss://api.fugle.tw/marketdata/v1.0/futopt/streaming`，連線後 `{event:auth,data:{apikey}}` → 訂閱 `trades` 頻道，成交即時推送、自動重連。狀態列顯示 🟢 即時連線中。
+- 另以 REST `…/futopt/intraday/quote/{symbol}`（header `X-API-KEY`）抓一次快照墊底（成交稀疏時先有價）。實測 Fugle 允許瀏覽器直連。
 - 合約代碼：根代碼 + 月碼（**A–L = 1–12 月**）+ 西元末碼，如 7 月 2026 大台 = `TXFG6`。近月過了結算日（每月第 3 個週三）自動跳次月。
-- 取得現價後計算未實現損益、權益總值、風險指標、距追繳／斷頭。
+- 即時計算未實現損益、權益總值、風險指標、距追繳／斷頭。
 
 ## 已知限制
 

@@ -2,7 +2,7 @@
 import { store } from './store.js';
 import { fetchProducts, parseHtml } from './taifex.js';
 import { computePosition, computePortfolio, computeLive } from './calc.js';
-import { fetchLastPrice } from './fugle.js';
+import { fetchLastPrice, connectFugleStream } from './fugle.js';
 import { computeSim } from './simulator.js';
 
 let MULTI = { index: {}, stockLotDefault: 2000, stockLotSmall: 100, etfUnitsDefault: 10000, etfUnitsSmall: 1000 };
@@ -209,8 +209,8 @@ function bindInvEvents(wrap) {
   wrap.querySelectorAll('[data-lots]').forEach((el) => (el.onchange = () => { store.updatePosition(el.dataset.lots, { lots: Math.max(1, Number(el.value) || 1) }); renderInventory(); }));
   wrap.querySelectorAll('[data-cost]').forEach((el) => (el.onchange = () => { store.updatePosition(el.dataset.cost, { cost: el.value === '' ? null : Number(el.value) }); renderInventory(); }));
   wrap.querySelectorAll('button[data-side]').forEach((el) => (el.onclick = () => { const cur = store.getInventory().find((p) => p.id === el.dataset.side); store.updatePosition(el.dataset.side, { side: cur && cur.side === 'short' ? 'long' : 'short' }); renderInventory(); }));
-  wrap.querySelectorAll('[data-symbol]').forEach((el) => (el.onchange = () => { store.updatePosition(el.dataset.symbol, { symbol: el.value.trim().toUpperCase() || null }); fetchAllLive(); }));
-  wrap.querySelectorAll('[data-del]').forEach((el) => (el.onclick = () => { store.removePosition(el.dataset.del); renderInventory(); }));
+  wrap.querySelectorAll('[data-symbol]').forEach((el) => (el.onchange = () => { store.updatePosition(el.dataset.symbol, { symbol: el.value.trim().toUpperCase() || null }); startLive(); }));
+  wrap.querySelectorAll('[data-del]').forEach((el) => (el.onclick = () => { store.removePosition(el.dataset.del); renderInventory(); startLive(); }));
 }
 
 // 權益數（模擬期貨商帳戶權益）
@@ -280,31 +280,52 @@ function pnlCls(v) {
   return v == null ? 'dim' : v > 0 ? 'up' : v < 0 ? 'down' : '';
 }
 
-// 自動輪詢：啟用即時報價時每 15 秒抓一次現價。
-let liveTimer = null;
-const LIVE_INTERVAL = 15000;
-function scheduleLive() {
-  clearInterval(liveTimer);
-  liveTimer = null;
-  if (store.getSettings().livePrice) liveTimer = setInterval(() => fetchAllLive(true), LIVE_INTERVAL);
-}
-
-// 抓所有部位現價，填 livePrices，再重繪。silent=自動輪詢（不顯示「抓取中」、不打斷其他訊息）。
+// REST 快照：抓一次現價墊底（WS trades 在無成交時不推送）。silent 時只在出錯才動狀態列。
 async function fetchAllLive(silent = false) {
   const s = store.getSettings();
   const st = $('status');
   const info = (m) => { st.style.color = 'var(--muted)'; st.textContent = m; };
-  if (!s.livePrice) { if (!silent) info('未啟用即時報價：請勾「Fugle 即時報價」後按「儲存並計算」'); scheduleLive(); renderInventory(); return; }
-  if (!s.fugleKey) { if (!silent) info('未填 Fugle API key'); renderInventory(); return; }
+  if (!s.livePrice || !s.fugleKey) { if (!silent) info('未啟用即時報價或未填金鑰'); renderInventory(); return; }
   const symbols = [...new Set(store.getInventory().map((p) => p.symbol).filter(Boolean))];
-  if (!symbols.length) { if (!silent) info('庫存無合約代碼：請在部位的「合約代碼」欄填近月碼（如 TXFG6）'); renderInventory(); return; }
+  if (!symbols.length) { if (!silent) info('庫存無合約代碼'); renderInventory(); return; }
   if (!silent) info(`抓取現價中…（${symbols.length} 檔）`);
   await Promise.all(symbols.map(async (sym) => { livePrices[sym] = await fetchLastPrice(sym, s.fugleKey); }));
   const bad = symbols.find((x) => livePrices[x]?.error);
-  const t = new Date().toLocaleTimeString('zh-TW', { hour12: false });
-  st.style.color = 'var(--muted)';
-  st.textContent = bad ? `現價失敗：${livePrices[bad].error}` : `現價更新於 ${t}（每 15 秒自動）`;
+  if (!silent || bad) {
+    const t = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+    st.style.color = 'var(--muted)';
+    st.textContent = bad ? `現價失敗：${livePrices[bad].error}` : `現價快照 ${t}`;
+  }
   renderInventory();
+}
+
+// WebSocket 即時串流：tick-by-tick 更新。symbols 變動或開關時呼叫 startLive 重建。
+let liveStream = null;
+let tickPending = false;
+function onTick(sym, price) {
+  livePrices[sym] = { price, error: null };
+  if (tickPending) return; // 合併同一幀內多筆 tick，避免狂重繪
+  tickPending = true;
+  requestAnimationFrame(() => { tickPending = false; renderInventory(); });
+}
+function onStreamStatus(state, msg) {
+  const st = $('status');
+  st.style.color = 'var(--muted)';
+  if (state === 'connected') st.textContent = '🟢 即時連線中（WebSocket）';
+  else if (state === 'reconnecting') st.textContent = '🟡 即時重新連線中…';
+  else if (state === 'error') st.textContent = `即時連線錯誤：${msg || ''}`;
+}
+function startLive() {
+  if (liveStream) { liveStream.close(); liveStream = null; }
+  const s = store.getSettings();
+  const st = $('status');
+  const info = (m) => { st.style.color = 'var(--muted)'; st.textContent = m; };
+  if (!s.livePrice) { info('未啟用即時報價：請勾「Fugle 即時報價」後按「儲存並計算」'); renderInventory(); return; }
+  if (!s.fugleKey) { info('未填 Fugle API key'); return; }
+  const symbols = [...new Set(store.getInventory().map((p) => p.symbol).filter(Boolean))];
+  if (!symbols.length) { info('庫存無合約代碼：請在部位填近月碼（如 TXFG6）'); return; }
+  fetchAllLive(true); // 先快照墊底
+  liveStream = connectFugleStream(s.fugleKey, symbols, onTick, onStreamStatus);
 }
 
 // ---------- 合約代碼（Fugle symbol）----------
@@ -367,7 +388,7 @@ $('addDlg').addEventListener('close', () => {
     symbol: $('addSymbol').value.trim().toUpperCase() || null,
   });
   addingCode = null;
-  fetchAllLive();
+  startLive();
 });
 
 // ---------- 更新保證金 ----------
@@ -555,8 +576,8 @@ function bind() {
   $('livePrice').checked = !!s.livePrice;
   $('fugleKey').value = s.fugleKey || '';
   const persistSettings = () => store.saveSettings({ principal: Number($('principal').value) || 0, livePrice: $('livePrice').checked, fugleKey: $('fugleKey').value.trim() });
-  $('btnSaveSettings').onclick = () => { persistSettings(); scheduleLive(); fetchAllLive(); };
-  $('btnRefreshLive').onclick = () => { persistSettings(); scheduleLive(); fetchAllLive(); };
+  $('btnSaveSettings').onclick = () => { persistSettings(); startLive(); };
+  $('btnRefreshLive').onclick = () => { persistSettings(); startLive(); };
   // 視圖切換 + 單品試算
   document.querySelectorAll('.viewtabs button').forEach((b) => (b.onclick = () => switchView(b.dataset.v)));
   ['simEquity', 'simPrice', 'simLots'].forEach((id) => ($(id).oninput = renderSim));
@@ -577,6 +598,6 @@ async function init() {
   renderProducts();
   renderInventory();
   populateSimProduct();
-  if (store.getSettings().livePrice) { scheduleLive(); fetchAllLive(); }
+  if (store.getSettings().livePrice) startLive();
 }
 init();
