@@ -280,19 +280,30 @@ function pnlCls(v) {
   return v == null ? 'dim' : v > 0 ? 'up' : v < 0 ? 'down' : '';
 }
 
-// 抓所有部位現價，填 livePrices，再重繪。
-async function fetchAllLive() {
+// 自動輪詢：啟用即時報價時每 15 秒抓一次現價。
+let liveTimer = null;
+const LIVE_INTERVAL = 15000;
+function scheduleLive() {
+  clearInterval(liveTimer);
+  liveTimer = null;
+  if (store.getSettings().livePrice) liveTimer = setInterval(() => fetchAllLive(true), LIVE_INTERVAL);
+}
+
+// 抓所有部位現價，填 livePrices，再重繪。silent=自動輪詢（不顯示「抓取中」、不打斷其他訊息）。
+async function fetchAllLive(silent = false) {
   const s = store.getSettings();
   const st = $('status');
   const info = (m) => { st.style.color = 'var(--muted)'; st.textContent = m; };
-  if (!s.livePrice) { info('未啟用即時報價：請勾「Fugle 即時報價」後按「儲存並計算」'); renderInventory(); return; }
-  if (!s.fugleKey) { info('未填 Fugle API key'); renderInventory(); return; }
+  if (!s.livePrice) { if (!silent) info('未啟用即時報價：請勾「Fugle 即時報價」後按「儲存並計算」'); scheduleLive(); renderInventory(); return; }
+  if (!s.fugleKey) { if (!silent) info('未填 Fugle API key'); renderInventory(); return; }
   const symbols = [...new Set(store.getInventory().map((p) => p.symbol).filter(Boolean))];
-  if (!symbols.length) { info('庫存無合約代碼：請在部位的「合約代碼」欄填近月碼（如 TXFC5）'); renderInventory(); return; }
-  info(`抓取現價中…（${symbols.length} 檔）`);
+  if (!symbols.length) { if (!silent) info('庫存無合約代碼：請在部位的「合約代碼」欄填近月碼（如 TXFG6）'); renderInventory(); return; }
+  if (!silent) info(`抓取現價中…（${symbols.length} 檔）`);
   await Promise.all(symbols.map(async (sym) => { livePrices[sym] = await fetchLastPrice(sym, s.fugleKey); }));
   const bad = symbols.find((x) => livePrices[x]?.error);
-  st.textContent = bad ? `現價失敗：${livePrices[bad].error}` : `現價已更新（${symbols.length} 檔）`;
+  const t = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+  st.style.color = 'var(--muted)';
+  st.textContent = bad ? `現價失敗：${livePrices[bad].error}` : `現價更新於 ${t}（每 15 秒自動）`;
   renderInventory();
 }
 
@@ -544,8 +555,8 @@ function bind() {
   $('livePrice').checked = !!s.livePrice;
   $('fugleKey').value = s.fugleKey || '';
   const persistSettings = () => store.saveSettings({ principal: Number($('principal').value) || 0, livePrice: $('livePrice').checked, fugleKey: $('fugleKey').value.trim() });
-  $('btnSaveSettings').onclick = () => { persistSettings(); fetchAllLive(); };
-  $('btnRefreshLive').onclick = () => { persistSettings(); fetchAllLive(); };
+  $('btnSaveSettings').onclick = () => { persistSettings(); scheduleLive(); fetchAllLive(); };
+  $('btnRefreshLive').onclick = () => { persistSettings(); scheduleLive(); fetchAllLive(); };
   // 視圖切換 + 單品試算
   document.querySelectorAll('.viewtabs button').forEach((b) => (b.onclick = () => switchView(b.dataset.v)));
   ['simEquity', 'simPrice', 'simLots'].forEach((id) => ($(id).oninput = renderSim));
@@ -566,6 +577,6 @@ async function init() {
   renderProducts();
   renderInventory();
   populateSimProduct();
-  if (store.getSettings().livePrice) fetchAllLive();
+  if (store.getSettings().livePrice) { scheduleLive(); fetchAllLive(); }
 }
 init();
