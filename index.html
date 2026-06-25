@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>台股期貨槓桿計算機</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header>
+    <h1>台股期貨槓桿計算機</h1>
+    <button id="btnRefresh">↻ 更新保證金</button>
+    <span id="meta" class="meta">尚未更新</span>
+    <span id="status" class="err"></span>
+    <span class="spacer"></span>
+    <button id="btnPaste" class="ghost sm">手動貼上</button>
+    <button id="btnExport" class="ghost sm">匯出庫存</button>
+    <button id="btnImport" class="ghost sm">匯入庫存</button>
+  </header>
+
+  <main>
+    <!-- 我的庫存 -->
+    <section>
+      <h2>我的庫存</h2>
+      <div id="invWrap"></div>
+      <div class="totals" id="totals"></div>
+    </section>
+
+    <!-- 商品搜尋 -->
+    <section>
+      <h2>商品搜尋（點「加入」建立庫存）</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input id="search" placeholder="搜尋 代碼 / 名稱 / 標的（台積、2330、大台…）" style="flex:1;min-width:220px" />
+      </div>
+      <div class="tabs" id="tabs">
+        <button data-t="all" class="active">全部</button>
+        <button data-t="index">指數</button>
+        <button data-t="stock">個股</button>
+        <button data-t="etf">ETF</button>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th class="lcol">代碼</th><th class="lcol">名稱</th><th>類別</th>
+              <th>原始保證金</th><th>維持保證金</th><th>槓桿</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="prodBody"></tbody>
+        </table>
+      </div>
+      <p class="meta" id="prodCount"></p>
+    </section>
+
+    <!-- 設定 -->
+    <section>
+      <details>
+        <summary>進階設定（即時報價 / SPAN 提示）</summary>
+        <div class="row" style="margin-top:12px">
+          <label class="field-inline">本金(權益) <input id="principal" type="number" placeholder="選填" /></label>
+          <label><input type="checkbox" id="livePrice" /> 啟用 Fugle 即時報價</label>
+          <input id="fugleKey" type="password" placeholder="Fugle X-API-KEY" style="min-width:240px" />
+          <button id="btnSaveSettings" class="sm">儲存</button>
+        </div>
+        <p class="meta">⚠ 本工具保證金為「單式相加」，<b>未計入 SPAN 組合保證金抵減</b>，實際所需保證金可能更低。<br>
+        即時報價 endpoint/合約代碼需對照 <a href="https://developer.fugle.tw/docs/data-futopt/intro/" target="_blank" rel="noreferrer">Fugle 文件</a> 確認。</p>
+      </details>
+    </section>
+  </main>
+
+  <!-- 加入庫存 dialog -->
+  <dialog id="addDlg">
+    <form method="dialog">
+      <div class="dlg-body">
+        <b id="addTitle"></b>
+        <label>口數 <input id="addLots" type="number" min="1" value="1" /></label>
+        <label>成本價 <input id="addCost" type="number" step="any" placeholder="指數/ETF 需填才算槓桿" /></label>
+        <label>方向
+          <select id="addSide"><option value="long">多單</option><option value="short">空單</option></select>
+        </label>
+        <label id="addMultWrap" style="display:none">契約乘數（此商品未內建，請手填覆寫）
+          <input id="addMult" type="number" step="any" />
+        </label>
+      </div>
+      <div class="dlg-foot">
+        <button value="cancel" class="ghost">取消</button>
+        <button value="ok" id="addOk">加入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 手動貼上 dialog -->
+  <dialog id="pasteDlg">
+    <form method="dialog">
+      <div class="dlg-body">
+        <b>Proxy 掛掉時的備援：貼上期交所頁面原始碼</b>
+        <label>指數類 HTML（<a href="https://www.taifex.com.tw/cht/5/indexMarging" target="_blank" rel="noreferrer">開頁</a> → 全選原始碼）
+          <textarea id="pasteIndex" rows="3"></textarea></label>
+        <label>股票類 HTML（<a href="https://www.taifex.com.tw/cht/5/stockMargining" target="_blank" rel="noreferrer">開頁</a>）
+          <textarea id="pasteStock" rows="3"></textarea></label>
+      </div>
+      <div class="dlg-foot">
+        <button value="cancel" class="ghost">取消</button>
+        <button value="ok" id="pasteOk">解析</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input id="importFile" type="file" accept="application/json" hidden />
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "_comment": "契約乘數/股數對照。期交所保證金頁不提供乘數，固定金額類(指數/ETF)算槓桿需要它。只列有把握的本國主力，其餘 multiplier=null → UI 顯示槓桿『—』並可手動 override。code 為 Fugle 行情根代碼(選配用)。",
+  "stockLotDefault": 2000,
+  "stockLotSmall": 100,
+  "etfUnitsDefault": 10000,
+  "etfUnitsSmall": 1000,
+  "index": {
+    "臺股期貨": { "multiplier": 200, "code": "TXF" },
+    "小型臺指": { "multiplier": 50, "code": "MXF" },
+    "客製化小型臺指期貨": { "multiplier": 50, "code": null },
+    "微型臺指期貨": { "multiplier": 10, "code": "TMF" },
+    "電子期貨": { "multiplier": 4000, "code": "TEF" },
+    "小型電子期貨": { "multiplier": 1000, "code": null },
+    "金融期貨": { "multiplier": 1000, "code": "TFF" },
+    "小型金融期貨": { "multiplier": 250, "code": null },
+    "非金電期貨": { "multiplier": 100, "code": "XIF" }
+  }
+}
