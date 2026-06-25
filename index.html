@@ -19,53 +19,94 @@
   </header>
 
   <main>
+    <div class="viewtabs">
+      <button data-v="portfolio" class="active">多檔持倉</button>
+      <button data-v="sim">單品試算</button>
+    </div>
+
+    <div id="view-portfolio">
     <!-- 我的庫存 -->
     <section>
-      <h2>我的庫存</h2>
-      <div id="invWrap"></div>
-      <div class="totals" id="totals"></div>
+      <details open>
+        <summary>我的庫存</summary>
+        <div id="invWrap"></div>
+        <div class="totals" id="totals"></div>
+      </details>
+    </section>
+
+    <!-- 權益數 -->
+    <section>
+      <details open>
+        <summary>權益數（模擬）</summary>
+        <div class="row" style="margin-bottom:14px">
+          <label class="field-inline">期初權益(本金) <input id="principal" type="number" placeholder="輸入可用資金" /></label>
+          <label><input type="checkbox" id="livePrice" /> Fugle 即時報價</label>
+          <input id="fugleKey" type="password" placeholder="Fugle X-API-KEY" style="min-width:220px" />
+          <button id="btnSaveSettings" class="sm">儲存並計算</button>
+          <button id="btnRefreshLive" class="ghost sm">↻ 重抓現價</button>
+        </div>
+        <div id="equity"></div>
+      </details>
     </section>
 
     <!-- 商品搜尋 -->
     <section>
-      <h2>商品搜尋（點「加入」建立庫存）</h2>
-      <div class="row" style="margin-bottom:10px">
-        <input id="search" placeholder="搜尋 代碼 / 名稱 / 標的（台積、2330、大台…）" style="flex:1;min-width:220px" />
-      </div>
-      <div class="tabs" id="tabs">
-        <button data-t="all" class="active">全部</button>
-        <button data-t="index">指數</button>
-        <button data-t="stock">個股</button>
-        <button data-t="etf">ETF</button>
-      </div>
-      <div class="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th class="lcol">代碼</th><th class="lcol">名稱</th><th>類別</th>
-              <th>原始保證金</th><th>維持保證金</th><th>槓桿</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="prodBody"></tbody>
-        </table>
-      </div>
-      <p class="meta" id="prodCount"></p>
-    </section>
-
-    <!-- 設定 -->
-    <section>
-      <details>
-        <summary>進階設定（即時報價 / SPAN 提示）</summary>
-        <div class="row" style="margin-top:12px">
-          <label class="field-inline">本金(權益) <input id="principal" type="number" placeholder="選填" /></label>
-          <label><input type="checkbox" id="livePrice" /> 啟用 Fugle 即時報價</label>
-          <input id="fugleKey" type="password" placeholder="Fugle X-API-KEY" style="min-width:240px" />
-          <button id="btnSaveSettings" class="sm">儲存</button>
+      <details open>
+        <summary>商品搜尋（點「加入」建立庫存）</summary>
+        <div class="row" style="margin-bottom:10px">
+          <input id="search" placeholder="搜尋 代碼 / 名稱 / 標的（台積、2330、大台…）" style="flex:1;min-width:220px" />
         </div>
-        <p class="meta">⚠ 本工具保證金為「單式相加」，<b>未計入 SPAN 組合保證金抵減</b>，實際所需保證金可能更低。<br>
-        即時報價 endpoint/合約代碼需對照 <a href="https://developer.fugle.tw/docs/data-futopt/intro/" target="_blank" rel="noreferrer">Fugle 文件</a> 確認。</p>
+        <div class="tabs" id="tabs">
+          <button data-t="all" class="active">全部</button>
+          <button data-t="index">指數</button>
+          <button data-t="stock">個股</button>
+          <button data-t="etf">ETF</button>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="lcol">代碼</th><th class="lcol">名稱</th><th>類別</th>
+                <th>原始保證金</th><th>維持保證金</th><th>槓桿</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="prodBody"></tbody>
+          </table>
+        </div>
+        <p class="meta" id="prodCount"></p>
       </details>
     </section>
+
+    <!-- 說明 -->
+    <section>
+      <details>
+        <summary>說明 / 限制</summary>
+        <p class="meta" style="margin-top:12px">⚠ 保證金為「單式相加」，<b>未計入 SPAN 組合保證金抵減</b>，實際所需可能更低。<br>
+        風險指標 = 權益總值 ÷ 原始保證金 ×100%，低於 25% 多數期貨商盤中代為沖銷（斷頭）；權益總值低於維持保證金則盤後追繳。<br>
+        操作槓桿 = 部位市值 ÷ 權益；<b>風險等級</b>依操作槓桿分級：&lt;2x 保守、2–5x 穩健、5–10x 積極、10–20x 高風險、≥20x 極高風險。<br>
+        每跳損益 = 最小跳動 × 每點價值 × 口數（個股/ETF 依台股 tick 表隨價分級）。情境損益假設所有標的同步漲跌。<br>
+        即時報價需 <a href="https://developer.fugle.tw/docs/data-futopt/intro/" target="_blank" rel="noreferrer">Fugle 金鑰</a>，合約代碼為近月完整碼（如 TXFG6）。實測 Fugle 允許瀏覽器直連。</p>
+      </details>
+    </section>
+    </div><!-- /view-portfolio -->
+
+    <div id="view-sim" hidden>
+      <section>
+        <h2>單品試算（下單前規劃）</h2>
+        <div class="row" style="gap:16px;margin-bottom:8px">
+          <label class="field-inline">帳戶權益 <input id="simEquity" type="number" value="1000000" style="width:120px" /></label>
+          <label>商品 <input id="simSearch" placeholder="搜尋過濾" style="width:130px" /> <select id="simProduct" style="min-width:200px"></select></label>
+          <label class="field-inline">收盤/進場價 <input id="simPrice" type="number" step="any" placeholder="輸入價格" style="width:110px" /></label>
+          <label class="field-inline">口數 <input id="simLots" type="number" min="1" value="1" style="width:70px" /></label>
+        </div>
+        <div class="row" style="gap:12px">
+          <span class="dim">承受回檔</span>
+          <input id="simDrawdown" type="range" min="1" max="60" value="20" style="flex:1;max-width:340px" />
+          <span id="simDrawdownVal" class="num">20%</span>
+        </div>
+        <div id="simOut" style="margin-top:18px"></div>
+      </section>
+    </div><!-- /view-sim -->
   </main>
 
   <!-- 加入庫存 dialog -->
@@ -77,6 +118,9 @@
         <label>成本價 <input id="addCost" type="number" step="any" placeholder="指數/ETF 需填才算槓桿" /></label>
         <label>方向
           <select id="addSide"><option value="long">多單</option><option value="short">空單</option></select>
+        </label>
+        <label>合約代碼（即時報價用，預設近月）
+          <select id="addSymbol"></select>
         </label>
         <label id="addMultWrap" style="display:none">契約乘數（此商品未內建，請手填覆寫）
           <input id="addMult" type="number" step="any" />
