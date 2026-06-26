@@ -177,3 +177,30 @@ dialog::backdrop { background: rgba(0,0,0,.55); }
 details summary { cursor: pointer; color: var(--muted); font-size: 12px; }
 section > details > summary { font-size: 14px; font-weight: 600; letter-spacing: .03em; margin-bottom: 12px; }
 section > details[open] > summary { margin-bottom: 14px; }
+
+/* ---------- RWD（手機）---------- */
+@media (max-width: 700px) {
+  body { font-size: 13px; }
+  header { padding: 10px 12px; gap: 8px; }
+  header h1 { font-size: 15px; flex-basis: 100%; }
+  header .spacer { display: none; }
+  main { padding: 12px; gap: 18px; }
+  #view-portfolio:not([hidden]), #view-sim:not([hidden]) { gap: 18px; }
+  section { padding: 12px; border-radius: 8px; }
+  th, td { padding: 6px 8px; }
+  th { top: 0; }
+  .totals { gap: 16px 18px; }
+  .totals .v { font-size: 15px; }
+  .equity { max-width: 100%; }
+  .speccols { grid-template-columns: 1fr 1fr; }
+  .tipbox { width: min(82vw, 280px); }
+  input, select, button { font-size: 13px; }
+  .viewtabs button { padding: 7px 14px; }
+  #fugleKey { min-width: 0; flex: 1 1 160px; }
+  #search { min-width: 0; }
+  .scroll { max-height: 60vh; }
+}
+@media (max-width: 430px) {
+  .speccols { grid-template-columns: 1fr; }
+  header button.ghost.sm { padding: 4px 8px; }
+}
