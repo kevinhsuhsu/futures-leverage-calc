@@ -15,20 +15,6 @@ const fmtLev = (n) => (n == null ? '—' : `${n.toFixed(2)}x`);
 const fmtPct = (n) => (n == null ? '—' : `${(n * 100).toFixed(2)}%`);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-// 最小跳動值：個股/ETF 依台股 tick 表（隨價格分級），指數查 multipliers.json（預設 1 點）
-function equityTick(price) {
-  if (price < 10) return 0.01;
-  if (price < 50) return 0.05;
-  if (price < 100) return 0.1;
-  if (price < 500) return 0.5;
-  if (price < 1000) return 1;
-  return 5;
-}
-function tickSizeOf(product, price) {
-  if (product.type === 'stock' || product.type === 'etf') return equityTick(price);
-  return MULTI.index?.[product.name]?.tick ?? 1;
-}
-
 // ---------- meta / 狀態 ----------
 function renderMeta() {
   const meta = store.getMeta();
@@ -144,7 +130,7 @@ function renderInventory() {
   wrap.innerHTML = `<div class="scroll"><table>
     <thead><tr>
       <th class="lcol">商品</th><th>方向</th><th>口數</th><th>成本</th>
-      <th>契約價值</th><th>原始保證金</th><th>維持保證金</th><th>槓桿</th><th>每跳損益</th>
+      <th>契約價值</th><th>原始保證金</th><th>維持保證金</th><th>槓桿</th><th title="標的漲跌 1% 的損益（契約價值×1%），跨商品可比，配置參考用">每1%損益</th>
       ${live ? '<th>合約代碼</th><th>現價</th><th>未實現損益</th>' : ''}
       <th title="標的漲停(+10%)到該價的總損益">漲停損益</th><th title="標的跌停(−10%)到該價的總損益">跌停損益</th>
       <th></th>
@@ -194,7 +180,7 @@ function rowHtml(r, live) {
       : '<td class="num dim">—</td>';
     liveTd = sym + priceCell + pnlCell;
   }
-  const tick = tickValueOf(r);
+  const onePct = calc.contractValue != null ? Math.abs(calc.contractValue) * 0.01 : null;
   const up = scenPnl(r, 0.1);
   const down = scenPnl(r, -0.1);
   return `<tr>
@@ -206,7 +192,7 @@ function rowHtml(r, live) {
     <td class="num">${fmtNTD(calc.initialMargin)}</td>
     <td class="num">${fmtNTD(calc.maintMargin)}</td>
     <td class="num lev">${calc.leverage != null ? fmtLev(calc.leverage) : '<span class="dim">需乘數/成本</span>'}</td>
-    <td class="num">${tick ? `${fmtNTD(tick.val)} <span class="dim" style="font-size:11px">/${tick.sz}</span>` : '—'}</td>
+    <td class="num">${onePct != null ? fmtNTD(onePct) : '—'}</td>
     ${liveTd}
     <td class="num ${pnlCls(up)}">${up == null ? '—' : fmtNTD(up)}</td>
     <td class="num ${pnlCls(down)}">${down == null ? '—' : fmtNTD(down)}</td>
@@ -271,7 +257,7 @@ function renderEquity(calcRows) {
   ${risk != null && risk < 25 ? '<p class="err" style="margin-top:4px">⚠ 風險指標 &lt; 25% → 多數期貨商盤中將代為沖銷（斷頭）</p>' : ''}`;
 }
 
-// ---------- 漲跌停損益 / 每跳損益 helpers ----------
+// ---------- 漲跌停損益 helpers ----------
 // 標的漲跌 s（±0.1=漲跌停）→ 到該價位的總未實現損益。基準價 = 現價(無即時則成本)。
 function scenPnl(r, s) {
   if (!r.calc || r.pos.cost == null || r.calc.multiplier == null) return null;
@@ -279,12 +265,6 @@ function scenPnl(r, s) {
   const base = r.q?.ref ?? (r.lv ? r.lv.lastPrice : Number(r.pos.cost));
   const dir = r.pos.side === 'short' ? -1 : 1;
   return (base * (1 + s) - Number(r.pos.cost)) * r.calc.multiplier * (Number(r.pos.lots) || 0) * dir;
-}
-function tickValueOf(r) {
-  const price = r.lv ? r.lv.lastPrice : r.pos.cost;
-  if (!r.calc || r.calc.multiplier == null || price == null || price === '') return null;
-  const sz = tickSizeOf(r.p, Number(price));
-  return { sz, val: sz * r.calc.multiplier * (Number(r.pos.lots) || 0) };
 }
 function pnlCls(v) {
   return v == null ? 'dim' : v > 0 ? 'up' : v < 0 ? 'down' : '';
