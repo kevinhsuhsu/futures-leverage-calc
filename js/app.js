@@ -275,7 +275,8 @@ function renderEquity(calcRows) {
 // 標的漲跌 s（±0.1=漲跌停）→ 到該價位的總未實現損益。基準價 = 現價(無即時則成本)。
 function scenPnl(r, s) {
   if (!r.calc || r.pos.cost == null || r.calc.multiplier == null) return null;
-  const base = r.lv ? r.lv.lastPrice : Number(r.pos.cost);
+  // 漲跌停以昨收(參考價)為基準，日內固定，不隨現價跳；無 ref 才退回現價/成本
+  const base = r.q?.ref ?? (r.lv ? r.lv.lastPrice : Number(r.pos.cost));
   const dir = r.pos.side === 'short' ? -1 : 1;
   return (base * (1 + s) - Number(r.pos.cost)) * r.calc.multiplier * (Number(r.pos.lots) || 0) * dir;
 }
