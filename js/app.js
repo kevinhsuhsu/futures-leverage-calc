@@ -177,9 +177,18 @@ function rowHtml(r, live) {
   let liveTd = '';
   if (live) {
     const sym = `<td><input class="num" style="width:80px" value="${esc(pos.symbol || '')}" placeholder="TXFG6" data-symbol="${pos.id}"></td>`;
-    const priceCell = lv
-      ? `<td class="num">${fmtNTD(lv.lastPrice)}</td>`
-      : `<td class="num dim">${esc(q && q.error ? q.error : pos.symbol ? '—' : '填代碼')}</td>`;
+    let priceCell;
+    if (lv) {
+      const ref = q?.ref;
+      const px = lv.lastPrice;
+      const upcls = ref != null && ref > 0 ? (px > ref ? 'up' : px < ref ? 'down' : '') : '';
+      const chg = ref != null && ref > 0
+        ? ` <span class="${upcls}" style="font-size:11px">${px > ref ? '▲' : px < ref ? '▼' : ''}${Math.abs(((px - ref) / ref) * 100).toFixed(2)}%</span>`
+        : '';
+      priceCell = `<td class="num"><span class="${upcls}">${fmtNTD(px)}</span>${chg}</td>`;
+    } else {
+      priceCell = `<td class="num dim">${esc(q && q.error ? q.error : pos.symbol ? '—' : '填代碼')}</td>`;
+    }
     const pnlCell = lv
       ? `<td class="num ${lv.pnl > 0 ? 'up' : lv.pnl < 0 ? 'down' : ''}">${fmtNTD(lv.pnl)}</td>`
       : '<td class="num dim">—</td>';

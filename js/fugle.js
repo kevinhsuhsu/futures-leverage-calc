@@ -59,16 +59,18 @@ export function connectFugleStream(apiKey, symbols, onTick, onStatus) {
     ws.onmessage = (ev) => {
       let m;
       try { m = JSON.parse(ev.data); } catch { return; }
+      if (m.event !== 'data') console.log('[ws]', String(ev.data).slice(0, 300)); // 非報價事件全印（debug）
       if (m.event === 'authenticated') {
         retry = 0;
         onStatus?.('connected');
         for (const s of symbols) ws.send(JSON.stringify({ event: 'subscribe', data: { channel: 'trades', symbol: s } }));
       } else if (m.event === 'error') {
         onStatus?.('error', m.data?.message || '');
-      } else if (m.event === 'data') {
+      } else if (m.event === 'data' || m.event === 'snapshot') {
         const d = m.data || {};
         const p = d.price ?? d.lastPrice ?? d.close ?? d.closePrice;
         if (d.symbol && p != null) onTick(d.symbol, Number(p));
+        else console.log('[ws] data 無 price/symbol：', JSON.stringify(d).slice(0, 200));
       }
     };
     ws.onclose = () => {
